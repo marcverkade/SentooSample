@@ -1,0 +1,37 @@
+﻿@page "/webhook"
+@rendermode InteractiveServer
+@using SentooSample.Services
+
+@inject WebhookService WebhookService
+
+<PageTitle>Sentoo Webhook</PageTitle>
+
+<h1>Sentoo Webhook Listener</h1>
+
+<p>This page listens for incoming Sentoo webhook requests.</p>
+
+@if (!string.IsNullOrEmpty(WebhookService.ReceivedTransactionId))
+{
+    <div class="alert alert-success">
+        <h4>Webhook Received:</h4>
+        <p><strong>Transaction ID:</strong> @WebhookService.ReceivedTransactionId</p>
+        <p><strong>Raw Webhook Data:</strong></p>
+        <textarea class="form-control" rows="6" readonly>@WebhookService.WebhookData</textarea>
+    </div>
+}
+else
+{
+    <p>No webhook data received yet.</p>
+}
+
+@code {
+    protected override void OnInitialized()
+    {
+        WebhookService.OnChange += async () => await InvokeAsync(StateHasChanged);
+    }
+
+    public void Dispose()
+    {
+        WebhookService.OnChange -= async () => await InvokeAsync(StateHasChanged);
+    }
+}

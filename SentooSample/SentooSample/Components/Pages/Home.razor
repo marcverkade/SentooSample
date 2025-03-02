@@ -1,0 +1,233 @@
+﻿@page "/"
+@rendermode InteractiveServer
+
+@inject HttpClient Http
+
+<PageTitle>Sentoo Payment Test</PageTitle>
+
+<h1>Sentoo Payment Test V1</h1>
+
+<!-- The Buttons -->
+<button class="btn btn-primary" @onclick="FetchApiVersion">Fetch the Sentoo Version</button>
+<br>
+<br>
+<button class="btn btn-success" @onclick="CreatePayment">Create Payment</button>
+<button class="btn btn-warning" @onclick="CheckPaymentStatus">Check Payment Status</button>
+<button class="btn btn-danger" @onclick="CancelPayment">Cancel Payment</button>
+@if (!string.IsNullOrEmpty(paymentTransactionId))
+{
+    <a class="btn btn-primary" href="@paymentUrl" target="_blank">Open Payment Page</a>
+}
+<br>
+<br>
+<button class="btn btn-primary" @onclick="OpenWebhookListener">Open the Webhook Listener</button>
+<button class="btn btn-primary" @onclick="TestWebhookListener">Test the Webhook Listener</button>
+<br>
+<br>
+<button class="btn btn-info" @onclick="PushTestAD">Push Test AD</button>
+
+<!-- Show the response -->
+@if (!string.IsNullOrEmpty(apiResponse))
+{
+    <p><strong>API Response:</strong></p>
+    <textarea class="form-control" rows="4" readonly>@apiResponse</textarea>
+}
+
+@if (!string.IsNullOrEmpty(paymentTransactionId))
+{
+    <div class="mt-3">
+        <label>Transaction ID:</label>
+        <input class="form-control" value="@paymentTransactionId" readonly />
+
+        <label class="mt-2">Payment URL:</label>
+        <input class="form-control" value="@paymentUrl" readonly />
+
+        <label class="mt-2">QR Code URL:</label>
+        <input class="form-control" value="@qrCodeUrl" readonly />
+
+        <div class="mt-3">
+            <img class="mt-2" src="@qrCodeUrl" alt="QR Code" width="200" />
+        </div>
+    </div>
+}
+
+<br><br>
+<p>This aplication is created using:</p>
+<ul>
+    <li>ASP.Net Core Blazor</li>
+    <li>DotNet 9.0</li>
+    <li>Visual Studio 2022 V17.12.4</li>
+</ul>
+
+
+
+@code {
+    private string apiResponse = "";
+    private string paymentTransactionId = "";
+    private string paymentUrl = "";
+    private string qrCodeUrl = "";
+    private const string sentooSecret = "513e1f99-21a0-4777-b950-6e70481bee2f";
+    private const string merchantId = "3656f346-0e1d-4fc2-bee3-86fe22fb54e1";
+
+    // Fetch the Sentoo API version
+    private async Task FetchApiVersion()
+    {
+        try
+        {
+            var response = await Http.GetAsync("https://api.sandbox.sentoo.io");
+            apiResponse = response.IsSuccessStatusCode 
+                ? await response.Content.ReadAsStringAsync() 
+                : $"Error: {response.StatusCode}";
+        }
+        catch (Exception ex)
+        {
+            apiResponse = $"Exception: {ex.Message}";
+        }
+
+        StateHasChanged();
+    }
+
+    // Create a new payment
+    private async Task CreatePayment()
+    {
+        try
+        {
+            var request = new HttpRequestMessage(HttpMethod.Post, "https://api.sandbox.sentoo.io/v1/payment/new");
+            request.Headers.Add("X-SENTOO-SECRET", sentooSecret);
+
+            var content = new FormUrlEncodedContent(new[]
+            {
+                new KeyValuePair<string, string>("sentoo_merchant", merchantId),
+                new KeyValuePair<string, string>("sentoo_amount", "15000"),
+                new KeyValuePair<string, string>("sentoo_description", "Postman test"),
+                new KeyValuePair<string, string>("sentoo_currency", "ANG"),
+                new KeyValuePair<string, string>("sentoo_expires", "2025-04-01T13:39+01:00"),
+                new KeyValuePair<string, string>("sentoo_return_url", "https://antilliaansdagblad.com/sentoo/?attempt=")
+            });
+
+            request.Content = content;
+            var response = await Http.SendAsync(request);
+
+            if (response.IsSuccessStatusCode)
+            {
+                apiResponse = await response.Content.ReadAsStringAsync();
+                var json = System.Text.Json.JsonDocument.Parse(apiResponse);
+                var success = json.RootElement.GetProperty("success");
+
+                paymentTransactionId = success.GetProperty("message").GetString() ?? string.Empty;
+                paymentUrl = success.GetProperty("data").GetProperty("url").GetString() ?? string.Empty;
+                qrCodeUrl = success.GetProperty("data").GetProperty("qr_code").GetString() ?? string.Empty;
+            }
+            else
+            {
+                apiResponse = $"Error: {response.StatusCode}";
+            }
+        }
+        catch (Exception ex)
+        {
+            apiResponse = $"Exception: {ex.Message}";
+        }
+
+        StateHasChanged();
+    }
+
+    // Check the status of a payment
+    private async Task CheckPaymentStatus()
+    {
+        try
+        {
+            if (string.IsNullOrEmpty(paymentTransactionId))
+            {
+                apiResponse = "No transaction ID available. Please create a payment first.";
+                StateHasChanged();
+                return;
+            }
+
+            var url = $"https://api.sandbox.sentoo.io/v1/payment/status/{merchantId}/{paymentTransactionId}";
+            var request = new HttpRequestMessage(HttpMethod.Get, url);
+            request.Headers.Add("Accept", "application/json");
+            request.Headers.Add("X-SENTOO-SECRET", sentooSecret);
+
+            var response = await Http.SendAsync(request);
+            apiResponse = response.IsSuccessStatusCode 
+                ? await response.Content.ReadAsStringAsync() 
+                : $"Error: {response.StatusCode}";
+        }
+        catch (Exception ex)
+        {
+            apiResponse = $"Exception: {ex.Message}";
+        }
+
+        StateHasChanged();
+    }
+
+    // Cancel a payment
+    private async Task CancelPayment()
+    {
+        try
+        {
+            if (string.IsNullOrEmpty(paymentTransactionId))
+            {
+                apiResponse = "No transaction ID available. Please create a payment first.";
+                StateHasChanged();
+                return;
+            }
+
+            var url = $"https://api.sandbox.sentoo.io/v1/payment/cancel/{merchantId}/{paymentTransactionId}";
+            var request = new HttpRequestMessage(HttpMethod.Get, url);
+            request.Headers.Add("Accept", "application/json");
+            request.Headers.Add("X-SENTOO-SECRET", sentooSecret);
+
+            var response = await Http.SendAsync(request);
+            apiResponse = response.IsSuccessStatusCode 
+                ? await response.Content.ReadAsStringAsync() 
+                : $"Error: {response.StatusCode}";
+        }
+        catch (Exception ex)
+        {
+            apiResponse = $"Exception: {ex.Message}";
+        }
+
+        StateHasChanged();
+    }
+
+    // Push a test to sentoo.ad.cw
+    private async Task PushTestAD()
+    {
+        try
+        {
+            var url = "https://sentoo.ad.cw/checkstatus/";
+            var content = new FormUrlEncodedContent(new[]
+            {
+                new KeyValuePair<string, string>("transaction_id", paymentTransactionId)
+            });
+
+            var response = await Http.PostAsync(url, content);
+            apiResponse = response.IsSuccessStatusCode 
+                ? await response.Content.ReadAsStringAsync() 
+                : $"Error: {response.StatusCode}";
+        }
+        catch (Exception ex)
+        {
+            apiResponse = $"Exception: {ex.Message}";
+        }
+
+        StateHasChanged();
+    }
+
+    // Open the webhook listener in a new tab
+    private void OpenWebhookListener()
+    {
+        var url = "https://sentoo.ad.cw/webhook";
+        _ = JS.InvokeVoidAsync("window.open", url, "_blank");
+    }
+
+    // Test the webhook listener
+    private void TestWebhookListener()
+    {
+        var url = "https://sentoo.ad.cw/test-webhook";
+        _ = JS.InvokeVoidAsync("window.open", url, "_blank");
+    }
+
+    [Inject] IJSRuntime JS { get; set; } = default!;
+}
