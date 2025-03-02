@@ -24,15 +24,16 @@
 <button class="btn btn-primary" @onclick="TestWebhookListener">Test the Webhook Listener</button>
 <br>
 <br>
-<button class="btn btn-info" @onclick="PushTestAD">Push Test AD</button>
+<button class="btn btn-info" @onclick="PushStatusUpdate">Push Status Update</button>
 
-<!-- Show the response -->
+<!-- Show the API response -->
 @if (!string.IsNullOrEmpty(apiResponse))
 {
     <p><strong>API Response:</strong></p>
     <textarea class="form-control" rows="4" readonly>@apiResponse</textarea>
 }
 
+<!-- Show the parsed response data -->
 @if (!string.IsNullOrEmpty(paymentTransactionId))
 {
     <div class="mt-3">
@@ -51,6 +52,7 @@
     </div>
 }
 
+<!-- Some advertisement -->
 <br><br>
 <p>This application is created by www.mitcon.cw using:</p>
 <ul>
@@ -64,6 +66,8 @@
     private string paymentTransactionId = "";
     private string paymentUrl = "";
     private string qrCodeUrl = "";
+
+    // TODO: Get from settings or secure storage
     private const string sentooSecret = "513e1f99-21a0-4777-b950-6e70481bee2f";
     private const string merchantId = "3656f346-0e1d-4fc2-bee3-86fe22fb54e1";
 
@@ -102,7 +106,7 @@
             {
                 new KeyValuePair<string, string>("sentoo_merchant", merchantId),
                 new KeyValuePair<string, string>("sentoo_amount", "15000"),
-                new KeyValuePair<string, string>("sentoo_description", "Postman test"),
+                new KeyValuePair<string, string>("sentoo_description", "Sentoo payment test"),
                 new KeyValuePair<string, string>("sentoo_currency", "ANG"),
                 new KeyValuePair<string, string>("sentoo_expires", expirationDate),
                 new KeyValuePair<string, string>("sentoo_return_url", "https://sentoo.ad.cw/?attempt=")
@@ -126,7 +130,7 @@
             }
             else
             {
-                apiResponse = $"Error: {response.StatusCode}";
+                apiResponse = $"Error: {response.StatusCode} - " + await response.Content.ReadAsStringAsync();
             }
         }
         catch (Exception ex)
@@ -202,12 +206,12 @@
     }
 
     // Push a test to sentoo.ad.cw
-    private async Task PushTestAD()
+    private async Task PushStatusUpdate()
     {
         try
         {
             // Create the request to the webhook listener
-            var url = "https://sentoo.ad.cw/checkstatus/";
+            var url = "https://sentoo.ad.cw/statusupdate/";
             var content = new FormUrlEncodedContent(new[]
             {
                 new KeyValuePair<string, string>("transaction_id", paymentTransactionId)
@@ -241,5 +245,6 @@
         _ = JS.InvokeVoidAsync("window.open", url, "_blank");
     }
 
+    // Inject the JS runtime
     [Inject] IJSRuntime JS { get; set; } = default!;
 }

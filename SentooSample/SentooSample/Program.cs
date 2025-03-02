@@ -1,4 +1,6 @@
-﻿using Microsoft.AspNetCore.Http;
+﻿// MITCon NV 2025 - Marc Verkade
+// SentooSample
+using Microsoft.AspNetCore.Http;
 using System.Web;
 using SentooSample.Components;
 using SentooSample.Services;
@@ -12,6 +14,10 @@ builder.Services.AddRazorComponents()
 
 // Register HttpClient
 builder.Services.AddScoped(sp => new HttpClient { BaseAddress = new Uri("https://api.sandbox.sentoo.io") });
+
+// Use IHttpClientFactory instead of Scoped HttpClient for the webservice since that is a singleton that cannot consume a scoped HTTP client
+// All HTTPClient references should be changed but I am lazy...
+builder.Services.AddHttpClient();
 
 // Register WebhookService as a Singleton
 builder.Services.AddSingleton<WebhookService>();
@@ -29,9 +35,9 @@ else
     app.UseHsts();
 }
 
+// Default Blazor stuff
 app.UseHttpsRedirection();
 app.UseAntiforgery();
-
 app.MapStaticAssets();
 app.MapRazorComponents<App>()
     .AddInteractiveServerRenderMode()
@@ -39,8 +45,8 @@ app.MapRazorComponents<App>()
     .AddAdditionalAssemblies(typeof(SentooSample.Client._Imports).Assembly);
 
 // Add Webhook Endpoint
-// Blazor does not support POST requests, so we need to use a workaround
-app.MapPost("/checkstatus", async (HttpContext context, WebhookService webhookService) =>
+// Blazor does not support POST requests, so we need to use a workaround to catch POST requests
+app.MapPost("/statusupdate", async (HttpContext context, WebhookService webhookService) =>
 {
     // Create the log file and make sure the folder exists
     var logFile = Path.Combine(AppContext.BaseDirectory, "logs", "webhook_log.txt");
@@ -48,6 +54,7 @@ app.MapPost("/checkstatus", async (HttpContext context, WebhookService webhookSe
 
     try
     {
+        // Add to the log that we received a webhook request
         await File.AppendAllTextAsync(logFile, $"[{DateTime.UtcNow}] Webhook received\n");
 
         // Read the data
@@ -66,12 +73,13 @@ app.MapPost("/checkstatus", async (HttpContext context, WebhookService webhookSe
         var form = HttpUtility.ParseQueryString(requestBody);
         var transactionId = form["transaction_id"] ?? "Unknown";
 
-        // Update WebhookService
+        // Update WebhookService and the Webhook webpage
         await webhookService.UpdateWebhookDataAsync(transactionId, requestBody);
 
         // Log the transaction ID
         await File.AppendAllTextAsync(logFile, $"Transaction ID: {transactionId}\n");
 
+        // Return the transaction ID
         return Results.Ok(new { success = true, transaction_id = transactionId });
     }
     catch (Exception ex)
@@ -83,6 +91,7 @@ app.MapPost("/checkstatus", async (HttpContext context, WebhookService webhookSe
 });
 
 // Add the test-webhook endpoint
+// This should be a controller action and not a MapGet (Yes I am lazy ;-) )
 app.MapGet("/test-webhook", async (WebhookService webhookService) =>
 {
     // Create the log file and make sure the folder exists
@@ -115,4 +124,5 @@ app.MapGet("/test-webhook", async (WebhookService webhookService) =>
     return Results.Ok(new { success = true, transaction_id = fakeTransactionId });
 });
 
+// Run the app
 app.Run();
