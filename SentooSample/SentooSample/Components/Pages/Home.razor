@@ -60,6 +60,7 @@
     <li>DotNet 9.0</li>
     <li>Visual Studio 2022 V17.12.4</li>
 </ul>
+<button class="btn btn-primary" @onclick="ReadMe">Show the Readme.Txt</button>
 
 @code {
     private string apiResponse = "";
@@ -242,6 +243,15 @@
     private void TestWebhookListener()
     {
         var url = "https://sentoo.ad.cw/test-webhook";
+        _ = JS.InvokeVoidAsync("window.open", url, "_blank");
+    }
+
+    // Show the readme.txt
+    private void ReadMe()
+    {
+        // TODO: Find out why .txt files are not served correctly on IIS
+        // var url = "https://online.ad.cw/sentoo.txt";
+        var url = "https://staging.ad.cw/download/sentooreadme.txt";
         _ = JS.InvokeVoidAsync("window.open", url, "_blank");
     }
 
