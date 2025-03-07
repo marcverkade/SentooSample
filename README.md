@@ -9,7 +9,7 @@ This sample is developed as part of [online.ad.cw](https://online.ad.cw) and bui
 - **ASP.Net Core Blazor**
 - **DotNet 9.0**
 
-## Release Notes
+## Release Notes - https://sentoo.ad.cw
 
 ### Version 1.1 - 2025-03-07 
 - Added readme.md
